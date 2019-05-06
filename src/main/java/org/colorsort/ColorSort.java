@@ -4,12 +4,16 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class ColorSort {
-	private static final int MONKEY_SORT_ITERATIONS = 2000000000;
+	private static final int MONKEY_SORT_ITERATIONS = 300000000;
+	private static final int THREADS = 16;
 	private static final int RED_SHIFT = 16, GREEN_SHIFT = 8, BLUE_SHIFT = 0;
 	private static final int FULL_ALPHA = 0xff000000;
 	private static final int COLOR_MASK = 0xffffff;
@@ -65,7 +69,7 @@ public class ColorSort {
 		System.out.println("after sorting reds, distance: " + distance());
 
 		//STEP 2:  MONKEY SORT.  see if swapping two random pixels helps or not.
-		monkeySort();
+		parallelMonkeySort();
 
 		System.out.println("after \"monkey sort\", distance: " + distance());
 
@@ -86,17 +90,40 @@ public class ColorSort {
 		if(newDistance < oldDistance) {
 			//swap
 			int temporaryPixel = pixels[first].newColor;
-			pixels[first].newColor = pixels[second].newColor;
-			pixels[second].newColor = temporaryPixel;
-			pixels[first].updateDistance();
-			pixels[second].updateDistance();
+			synchronized(pixels) {
+				oldDistance = pixels[first].distance + pixels[second].distance;
+				newDistance = pixels[first].distance(pixels[second].newColor) + pixels[second].distance(pixels[first].newColor);
+				if(newDistance < oldDistance) {
+					pixels[first].newColor = pixels[second].newColor;
+					pixels[second].newColor = temporaryPixel;
+					pixels[first].updateDistance();
+					pixels[second].updateDistance();
+				}
+			}
 		}
 	}
 
 	private void monkeySort() {
-		Random random = new Random();
+		Random random = ThreadLocalRandom.current();
 		for(int i=0;i<MONKEY_SORT_ITERATIONS;i++) {
 			checkSwap(random.nextInt(pixels.length), random.nextInt(pixels.length));
+		}
+	}
+
+	private void parallelMonkeySort() {
+		List<Thread> threads = new ArrayList<>();
+		for(int i=0;i<THREADS;i++) {
+			Thread thread = new Thread(this::monkeySort);
+			threads.add(thread);
+			thread.start();
+		}
+
+		for(Thread thread : threads) {
+			try {
+				thread.join();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 
