@@ -1,0 +1,16 @@
+
+plugins {
+    id 'java'
+}
+
+group 'org.colorsort'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.8
+
+task run(type:JavaExec) {
+	main = 'org.colorsort.ColorSort'
+	args = ['balloon.png', 'balloon-output.png']
+	classpath = sourceSets.main.runtimeClasspath 
+}
+
